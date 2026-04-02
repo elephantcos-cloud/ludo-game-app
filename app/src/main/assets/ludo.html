@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Ludo Game</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; font-family: Arial, sans-serif; display: flex;
+         flex-direction: column; align-items: center; min-height: 100vh; color: white; }
+  h1 { margin: 10px 0; font-size: 24px; color: #f0c040; text-shadow: 0 0 10px #f0c040; }
+  #board { display: grid; grid-template-columns: repeat(15, 1fr);
+           grid-template-rows: repeat(15, 1fr);
+           width: 95vw; max-width: 420px; aspect-ratio: 1;
+           border: 3px solid #f0c040; border-radius: 8px; overflow: hidden; }
+  .cell { display: flex; align-items: center; justify-content: center;
+          font-size: 10px; border: 0.5px solid rgba(255,255,255,0.15); position: relative; }
+  .safe { background: rgba(255,255,255,0.15); }
+  .red-home { background: #e74c3c; }
+  .green-home { background: #2ecc71; }
+  .yellow-home { background: #f1c40f; }
+  .blue-home { background: #3498db; }
+  .red-path { background: rgba(231,76,60,0.4); }
+  .green-path { background: rgba(46,204,113,0.4); }
+  .yellow-path { background: rgba(241,196,15,0.4); }
+  .blue-path { background: rgba(52,152,219,0.4); }
+  .center { background: linear-gradient(135deg, #e74c3c 25%, #2ecc71 25%, #2ecc71 50%,
+            #f1c40f 50%, #f1c40f 75%, #3498db 75%); }
+  .piece { width: 70%; height: 70%; border-radius: 50%; border: 2px solid rgba(0,0,0,0.5);
+           cursor: pointer; transition: transform 0.2s; z-index: 2; }
+  .piece:hover { transform: scale(1.2); }
+  .piece-red { background: radial-gradient(circle at 30% 30%, #ff6b6b, #c0392b); }
+  .piece-green { background: radial-gradient(circle at 30% 30%, #55efc4, #27ae60); }
+  .piece-yellow { background: radial-gradient(circle at 30% 30%, #ffeaa7, #f39c12); }
+  .piece-blue { background: radial-gradient(circle at 30% 30%, #74b9ff, #2980b9); }
+  .piece.selected { box-shadow: 0 0 8px 3px white; transform: scale(1.3); }
+  #controls { display: flex; flex-direction: column; align-items: center; gap: 8px; 
+              margin: 10px 0; width: 95vw; max-width: 420px; }
+  #status { background: rgba(255,255,255,0.1); border-radius: 10px; padding: 10px 20px;
+            font-size: 15px; text-align: center; width: 100%; }
+  #dice-area { display: flex; align-items: center; gap: 15px; }
+  #dice { width: 70px; height: 70px; background: white; border-radius: 12px;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 36px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+          transition: transform 0.1s; user-select: none; }
+  #dice:active { transform: scale(0.9); }
+  #dice.rolled { animation: roll 0.3s ease; }
+  @keyframes roll { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-15deg)} 75%{transform:rotate(15deg)} }
+  #roll-btn { padding: 12px 30px; background: linear-gradient(135deg, #f0c040, #e67e22);
+              border: none; border-radius: 25px; font-size: 16px; font-weight: bold;
+              color: #1a1a2e; cursor: pointer; box-shadow: 0 4px 15px rgba(240,192,64,0.4); }
+  #roll-btn:active { transform: scale(0.95); }
+  #roll-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .player-info { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+  .player-badge { padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; }
+  .badge-red { background: #e74c3c; }
+  .badge-green { background: #2ecc71; color: #1a1a2e; }
+  .badge-yellow { background: #f1c40f; color: #1a1a2e; }
+  .badge-blue { background: #3498db; }
+  .badge-active { box-shadow: 0 0 10px 3px white; transform: scale(1.1); }
+  #win-screen { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85);
+                justify-content: center; align-items: center; flex-direction: column;
+                gap: 20px; z-index: 100; }
+  #win-screen h2 { font-size: 36px; color: #f0c040; }
+  #restart-btn { padding: 14px 40px; background: #f0c040; border: none; border-radius: 25px;
+                 font-size: 18px; font-weight: bold; color: #1a1a2e; cursor: pointer; }
+</style>
+</head>
+<body>
+<h1>🎲 Ludo Game</h1>
+
+<div id="controls">
+  <div class="player-info">
+    <div class="player-badge badge-red" id="badge-0">🔴 P1</div>
+    <div class="player-badge badge-green" id="badge-1">🟢 P2</div>
+    <div class="player-badge badge-yellow" id="badge-2">🟡 P3</div>
+    <div class="player-badge badge-blue" id="badge-3">🔵 P4</div>
+  </div>
+  <div id="status">🎮 Game Starting...</div>
+  <div id="dice-area">
+    <div id="dice">⚀</div>
+    <button id="roll-btn" onclick="rollDice()">Roll Dice 🎲</button>
+  </div>
+</div>
+
+<div id="board"></div>
+
+<div id="win-screen">
+  <h2 id="win-msg">🏆 Player Wins!</h2>
+  <button id="restart-btn" onclick="initGame()">Play Again</button>
+</div>
+
+<script>
+const DICE_FACES = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+const COLORS = ['red','green','yellow','blue'];
+const COLOR_NAMES = ['Red','Green','Yellow','Blue'];
+
+// Board path (15x15 grid positions)
+// Each color has 4 pieces, starting positions, home path etc.
+const BOARD_SIZE = 15;
+
+// Safe positions on main path (0-51)
+const SAFE_POSITIONS = [0,8,13,21,26,34,39,47];
+
+// Starting positions for each color on main path
+const START_POS = [0, 13, 26, 39];
+
+// Home column entry positions
+const HOME_ENTRY = [50, 11, 24, 37];
+
+// Main path: 52 cells (indices 0-51)
+// Grid coordinates for main path
+const MAIN_PATH = [
+  [6,1],[6,2],[6,3],[6,4],[6,5],
+  [5,6],[4,6],[3,6],[2,6],[1,6],[0,6],
+  [0,7],
+  [0,8],[1,8],[2,8],[3,8],[4,8],[5,8],
+  [6,9],[6,10],[6,11],[6,12],[6,13],
+  [6,14],[7,14],
+  [8,14],[8,13],[8,12],[8,11],[8,10],[8,9],
+  [9,8],[10,8],[11,8],[12,8],[13,8],[14,8],
+  [14,7],
+  [14,6],[13,6],[12,6],[11,6],[10,6],[9,6],
+  [8,5],[8,4],[8,3],[8,2],[8,1],[8,0],
+  [7,0]
+];
+
+// Home paths for each color
+const HOME_PATHS = [
+  [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]], // red
+  [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]], // green
+  [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]], // yellow
+  [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]], // blue
+];
+
+// Base positions (home yard) for each color
+const BASE_POSITIONS = [
+  [[1,1],[1,2],[2,1],[2,2]],   // red
+  [[1,12],[1,13],[2,12],[2,13]], // green
+  [[12,12],[12,13],[13,12],[13,13]], // yellow
+  [[12,1],[12,2],[13,1],[13,2]], // blue
+];
+
+let gameState = {};
+
+function initGame() {
+  document.getElementById('win-screen').style.display = 'none';
+  gameState = {
+    currentPlayer: 0,
+    diceValue: 0,
+    diceRolled: false,
+    pieces: [],
+    movablePieces: [],
+    numPlayers: 4
+  };
+
+  // Initialize pieces: each player has 4 pieces
+  for(let p = 0; p < 4; p++) {
+    gameState.pieces.push([]);
+    for(let i = 0; i < 4; i++) {
+      gameState.pieces[p].push({
+        state: 'base', // 'base', 'active', 'home'
+        pathPos: -1,   // position on main path (0-51)
+        homePos: -1,   // position on home path (0-5, 5=finished)
+        baseIdx: i
+      });
+    }
+  }
+
+  renderBoard();
+  updateStatus();
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+  
+  // Create 15x15 grid
+  const cells = [];
+  for(let r = 0; r < 15; r++) {
+    cells.push([]);
+    for(let c = 0; c < 15; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r;
+      cell.dataset.c = c;
+      colorCell(cell, r, c);
+      board.appendChild(cell);
+      cells[r].push(cell);
+    }
+  }
+
+  // Place pieces
+  for(let p = 0; p < 4; p++) {
+    for(let i = 0; i < 4; i++) {
+      const piece = gameState.pieces[p][i];
+      let cell = null;
+      
+      if(piece.state === 'base') {
+        const [r, c] = BASE_POSITIONS[p][i];
+        cell = cells[r][c];
+      } else if(piece.state === 'active') {
+        const [r, c] = MAIN_PATH[piece.pathPos];
+        cell = cells[r][c];
+      } else if(piece.state === 'homepath') {
+        const [r, c] = HOME_PATHS[p][piece.homePos];
+        cell = cells[r][c];
+      }
+      
+      if(cell) {
+        const el = document.createElement('div');
+        el.className = `piece piece-${COLORS[p]}`;
+        el.dataset.player = p;
+        el.dataset.pieceIdx = i;
+        if(gameState.movablePieces.some(m => m.p === p && m.i === i)) {
+          el.classList.add('selected');
+        }
+        el.onclick = () => movePiece(p, i);
+        cell.appendChild(el);
+      }
+    }
+  }
+}
+
+function colorCell(cell, r, c) {
+  // Red home (top-left)
+  if(r >= 0 && r <= 5 && c >= 0 && c <= 5) { cell.classList.add('red-home'); return; }
+  // Green home (top-right)
+  if(r >= 0 && r <= 5 && c >= 9 && c <= 14) { cell.classList.add('green-home'); return; }
+  // Yellow home (bottom-right)
+  if(r >= 9 && r <= 14 && c >= 9 && c <= 14) { cell.classList.add('yellow-home'); return; }
+  // Blue home (bottom-left)
+  if(r >= 9 && r <= 14 && c >= 0 && c <= 5) { cell.classList.add('blue-home'); return; }
+  // Center
+  if(r >= 6 && r <= 8 && c >= 6 && c <= 8) { cell.classList.add('center'); return; }
+  // Home paths
+  if(c === 7 && r >= 1 && r <= 5) { cell.classList.add('red-path'); return; }
+  if(r === 7 && c >= 1 && c <= 5) { cell.classList.add('green-path'); return; }
+  if(c === 7 && r >= 9 && r <= 13) { cell.classList.add('yellow-path'); return; }
+  if(r === 7 && c >= 9 && c <= 13) { cell.classList.add('blue-path'); return; }
+  // Safe cells
+  const pathIdx = MAIN_PATH.findIndex(([pr,pc]) => pr === r && pc === c);
+  if(pathIdx !== -1 && SAFE_POSITIONS.includes(pathIdx)) {
+    cell.classList.add('safe');
+    cell.innerHTML = '⭐';
+  }
+}
+
+function rollDice() {
+  if(gameState.diceRolled) return;
+  
+  const val = Math.floor(Math.random() * 6) + 1;
+  gameState.diceValue = val;
+  gameState.diceRolled = true;
+  
+  const diceEl = document.getElementById('dice');
+  diceEl.textContent = DICE_FACES[val-1];
+  diceEl.classList.add('rolled');
+  setTimeout(() => diceEl.classList.remove('rolled'), 300);
+  
+  document.getElementById('roll-btn').disabled = true;
+  
+  // Find movable pieces
+  findMovablePieces();
+  
+  if(gameState.movablePieces.length === 0) {
+    updateStatus(`${COLOR_NAMES[gameState.currentPlayer]} rolled ${val}. No valid move! Next player...`);
+    setTimeout(nextPlayer, 1500);
+  } else {
+    updateStatus(`${COLOR_NAMES[gameState.currentPlayer]} rolled ${val}. Select a piece to move!`);
+    renderBoard();
+  }
+}
+
+function findMovablePieces() {
+  const p = gameState.currentPlayer;
+  const val = gameState.diceValue;
+  gameState.movablePieces = [];
+  
+  for(let i = 0; i < 4; i++) {
+    const piece = gameState.pieces[p][i];
+    if(piece.state === 'finished') continue;
+    
+    if(piece.state === 'base') {
+      if(val === 6) gameState.movablePieces.push({p, i});
+    } else if(piece.state === 'active') {
+      const newPos = piece.pathPos + val;
+      // Check if can enter home path
+      const entryPos = (HOME_ENTRY[p] + 1) % 52;
+      const distToEntry = (HOME_ENTRY[p] - piece.pathPos + 52) % 52;
+      if(distToEntry < val) {
+        const homeSteps = val - distToEntry - 1;
+        if(homeSteps <= 5) gameState.movablePieces.push({p, i});
+      } else {
+        if(newPos < 52) gameState.movablePieces.push({p, i});
+      }
+    } else if(piece.state === 'homepath') {
+      if(piece.homePos + val <= 5) gameState.movablePieces.push({p, i});
+    }
+  }
+}
+
+function movePiece(player, pieceIdx) {
+  if(player !== gameState.currentPlayer) return;
+  if(!gameState.movablePieces.some(m => m.p === player && m.i === pieceIdx)) return;
+  
+  const piece = gameState.pieces[player][pieceIdx];
+  const val = gameState.diceValue;
+  let bonusTurn = false;
+  
+  if(piece.state === 'base') {
+    piece.state = 'active';
+    piece.pathPos = START_POS[player];
+    if(val === 6) bonusTurn = true;
+  } else if(piece.state === 'active') {
+    const distToEntry = (HOME_ENTRY[player] - piece.pathPos + 52) % 52;
+    if(distToEntry < val) {
+      const homeSteps = val - distToEntry - 1;
+      piece.state = 'homepath';
+      piece.pathPos = -1;
+      piece.homePos = homeSteps;
+      if(piece.homePos === 5) { piece.state = 'finished'; checkWin(player); }
+    } else {
+      piece.pathPos = (piece.pathPos + val) % 52;
+      // Capture enemy pieces
+      const captured = captureCheck(player, piece.pathPos);
+      if(captured) bonusTurn = true;
+    }
+  } else if(piece.state === 'homepath') {
+    piece.homePos += val;
+    if(piece.homePos >= 5) { piece.homePos = 5; piece.state = 'finished'; checkWin(player); }
+  }
+  
+  if(val === 6) bonusTurn = true;
+  
+  gameState.diceRolled = false;
+  gameState.movablePieces = [];
+  
+  if(!bonusTurn || piece.state === 'finished') {
+    nextPlayer();
+  } else {
+    updateStatus(`${COLOR_NAMES[player]} gets a bonus turn!`);
+    document.getElementById('roll-btn').disabled = false;
+    renderBoard();
+  }
+}
+
+function captureCheck(player, pos) {
+  if(SAFE_POSITIONS.includes(pos)) return false;
+  let captured = false;
+  for(let p = 0; p < 4; p++) {
+    if(p === player) continue;
+    for(let i = 0; i < 4; i++) {
+      const ep = gameState.pieces[p][i];
+      if(ep.state === 'active' && ep.pathPos === pos) {
+        ep.state = 'base';
+        ep.pathPos = -1;
+        captured = true;
+      }
+    }
+  }
+  return captured;
+}
+
+function checkWin(player) {
+  const finished = gameState.pieces[player].filter(p => p.state === 'finished').length;
+  if(finished === 4) {
+    document.getElementById('win-msg').textContent = `🏆 ${COLOR_NAMES[player]} Wins!`;
+    document.getElementById('win-screen').style.display = 'flex';
+  }
+}
+
+function nextPlayer() {
+  gameState.currentPlayer = (gameState.currentPlayer + 1) % 4;
+  gameState.diceRolled = false;
+  document.getElementById('roll-btn').disabled = false;
+  updateStatus();
+  renderBoard();
+  updateBadges();
+}
+
+function updateStatus(msg) {
+  document.getElementById('status').textContent = 
+    msg || `🎯 ${COLOR_NAMES[gameState.currentPlayer]}'s Turn — Roll the dice!`;
+}
+
+function updateBadges() {
+  for(let i = 0; i < 4; i++) {
+    const badge = document.getElementById(`badge-${i}`);
+    badge.classList.toggle('badge-active', i === gameState.currentPlayer);
+  }
+}
+
+initGame();
+</script>
+</body>
+</html>
